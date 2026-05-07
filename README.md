@@ -42,6 +42,7 @@ Awalnya dirancang untuk digunakan bersama Last.fm dan YouTube agar Anda hanya me
    ```
 3. Skrip akan secara otomatis melacak *output* dari VB-Cable, mengisolasi vokalnya, lalu memutarnya ke *speaker* atau *headset* bawaan PC Anda.
 
+> **⚠️ Catatan Penting Terkait Video:** Karena sistem membaca dan memproses audio dalam bentuk paket data (*chunking*) sebesar 3 detik (waktu komputasi), **audio yang Anda dengar akan mengalami *delay*** sekitar 3 detik di belakang videonya. Jadi wajar jika pergerakan mulut penyanyi di video YouTube Anda akan berjalan lebih dulu daripada suaranya (lipsync tidak akan pas).
 ### 🎛️ Modifikasi Lanjutan
 Jika audio masih terasa *delay* berlebih atau justru putus-putus, buka `haramMute.py` dan ubah variabel `chunkDuration` (Default: `3.0` detik).
 - **Turunkan nilainya** (misal `1.5`) agar audio lebih responsif, namun ini butuh performa CPU/GPU yang kuat.
