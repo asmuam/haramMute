@@ -1,5 +1,6 @@
 import sys
 import queue
+import argparse
 import sounddevice as sd
 import numpy as np
 import torch
@@ -12,7 +13,6 @@ from demucs.apply import apply_model
 warnings.filterwarnings("ignore")
 
 # Konfigurasi Parameter
-chunkDuration = 3.0  # Waktu buffer dalam detik (semakin kecil = minim delay, tapi butuh CPU kencang)
 sampleRate = 44100   # Standar sampling rate audio
 numChannels = 2      # Stereo
 
@@ -48,7 +48,7 @@ def getDeviceIndices():
     print(f"-> Menggunakan Output Device ID: {outputIdx} ({devices[outputIdx]['name']})\n")
     return inputIdx, outputIdx
 
-def processAudio():
+def processAudio(chunkDuration):
     """
     Fungsi utama untuk membaca stream dari VB-Cable, memproses audio ke Demucs,
     dan memutarnya kembali ke output audio (Speaker).
@@ -139,4 +139,13 @@ def processAudio():
         print(f"\n[-] Terjadi kesalahan: {err}")
 
 if __name__ == "__main__":
-    processAudio()
+    parser = argparse.ArgumentParser(description="HaramMute - Pemisah Vokal Real-Time")
+    parser.add_argument(
+        "-c", "--chunk",
+        type=float,
+        default=5.0,
+        help="Waktu buffer dalam detik (semakin kecil = minim delay, tapi butuh CPU kencang)"
+    )
+    args = parser.parse_args()
+
+    processAudio(chunkDuration=args.chunk)
