@@ -7,6 +7,9 @@ Harap perbarui file ini jika Anda melakukan perubahan (*Pull Request*).
 ### Added
 - `haramMute.py`: Opsi CLI `-c` atau `--chunk` untuk mengatur ukuran buffer audio.
 
+### Changed
+- `README.md`: Memperbarui dokumentasi pada bagian *Modifikasi Lanjutan* untuk penggunaan opsi CLI `--chunk` alih-alih mengubah variabel di dalam skrip.
+
 ## [1.0.0] - 2026-05-06
 
 ### Added
