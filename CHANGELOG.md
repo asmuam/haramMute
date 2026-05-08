@@ -3,6 +3,10 @@
 Semua perubahan yang signifikan pada proyek ini akan didokumentasikan di dalam file ini. 
 Harap perbarui file ini jika Anda melakukan perubahan (*Pull Request*).
 
+## [Unreleased]
+### Added
+- `haramMute.py`: Opsi CLI `-c` atau `--chunk` untuk mengatur ukuran buffer audio.
+
 ## [1.0.0] - 2026-05-06
 
 ### Added
