@@ -44,9 +44,14 @@ Awalnya dirancang untuk digunakan bersama Last.fm dan YouTube agar Anda hanya me
 
 > **⚠️ Catatan Penting Terkait Video:** Karena sistem membaca dan memproses audio dalam bentuk paket data (*chunking*) sebesar 3 detik (waktu komputasi), **audio yang Anda dengar akan mengalami *delay*** sekitar 3 detik di belakang videonya. Jadi wajar jika pergerakan mulut penyanyi di video YouTube Anda akan berjalan lebih dulu daripada suaranya (lipsync tidak akan pas).
 ### 🎛️ Modifikasi Lanjutan
-Jika audio masih terasa *delay* berlebih atau justru putus-putus, buka `haramMute.py` dan ubah variabel `chunkDuration` (Default: `3.0` detik).
-- **Turunkan nilainya** (misal `1.5`) agar audio lebih responsif, namun ini butuh performa CPU/GPU yang kuat.
-- **Naikkan nilainya** (misal `4.0`) jika suara terputus karena PC tidak sanggup memproses data dengan cepat.
+Jika audio masih terasa *delay* berlebih atau justru putus-putus, Anda dapat mengubah ukuran buffer audio (*chunk*) melalui argumen `-c` atau `--chunk` (Default: `5.0` detik) saat menjalankan program.
+
+```bash
+python haramMute.py -c 2.5
+```
+
+- **Turunkan nilainya** (misal `2.5`) agar audio lebih responsif, namun ini membutuhkan performa CPU/GPU yang lebih kuat.
+- **Naikkan nilainya** (misal `6.0`) jika suara terputus karena PC tidak sanggup memproses data dengan cepat.
 
 ## 📄 Lisensi
 
