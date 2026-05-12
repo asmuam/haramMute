@@ -5,10 +5,16 @@ Harap perbarui file ini jika Anda melakukan perubahan (*Pull Request*).
 
 ## [Unreleased]
 ### Added
-- `haramMute.py`: Opsi CLI `-c` atau `--chunk` untuk mengatur ukuran buffer audio.
+- `haramMute.py`: Opsi CLI `-c` atau `--chunk` untuk mengatur ukuran buffer audio (Default dikurangi dari 5.0s ke 2.0s).
+- `haramMute.py`: Opsi CLI `-b` atau `--buffer` untuk membatasi antrean audio dan mencegah akumulasi delay.
+- `run.bat`: Batch script untuk menjalankan program dengan sekali klik (double-click).
 
 ### Changed
-- `README.md`: Memperbarui dokumentasi pada bagian *Modifikasi Lanjutan* untuk penggunaan opsi CLI `--chunk` alih-alih mengubah variabel di dalam skrip.
+- `README.md`: Memperbarui dokumentasi pada bagian *Modifikasi Lanjutan* untuk penggunaan opsi CLI `--chunk` alih-alih mengubah variabel di dalam skrip, serta memperjelas perilaku ganti output device.
+
+### Fixed
+- `haramMute.bat`: Mengubah flag `-b` menjadi `-c` agar pengaturan durasi buffer (chunk) sesuai dengan yang diharapkan pengguna (memperbaiki masalah di mana nilai tetap 2.0).
+- `haramMute.py`: Memperjelas output log dengan menampilkan informasi *chunk duration* dan *queue size* secara bersamaan agar lebih transparan bagi pengguna.
 
 ## [1.0.0] - 2026-05-06
 
