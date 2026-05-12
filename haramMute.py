@@ -78,7 +78,9 @@ def processAudio(chunkDuration):
         
     inputIdx, outputIdx = getDeviceIndices()
     chunkSamples = int(chunkDuration * sampleRate)
-    audioQueue = queue.Queue()
+    
+    # Inisialisasi antrean dengan batas (maxsize) agar tidak terjadi akumulasi delay
+    audioQueue = queue.Queue(maxsize=args.buffer)
     
     def audioCallback(indata, frames, time, status):
         """
@@ -86,9 +88,19 @@ def processAudio(chunkDuration):
         """
         if status:
             print(status, file=sys.stderr)
-        audioQueue.put(indata.copy())
+            
+        try:
+            audioQueue.put_nowait(indata.copy())
+        except queue.Full:
+            # Jika antrean penuh, buang chunk paling lama dan masukkan yang baru
+            # Ini memastikan suara tetap real-time (tidak menumpuk delay)
+            try:
+                audioQueue.get_nowait()
+                audioQueue.put_nowait(indata.copy())
+            except:
+                pass
         
-    print(f"\n[+] Memulai streaming audio (Ukuran Buffer: {chunkDuration} detik)...")
+    print(f"\n[+] Memulai streaming audio (Chunk: {chunkDuration} detik, Queue: {args.buffer})...")
     print("[!] MAINKAN MUSIK ANDA SEKARANG.")
     print("Tekan Ctrl+C untuk berhenti.")
     
@@ -143,8 +155,14 @@ if __name__ == "__main__":
     parser.add_argument(
         "-c", "--chunk",
         type=float,
-        default=5.0,
+        default=2.0,
         help="Waktu buffer dalam detik (semakin kecil = minim delay, tapi butuh CPU kencang)"
+    )
+    parser.add_argument(
+        "-b", "--buffer",
+        type=int,
+        default=2,
+        help="Jumlah maksimal antrean chunk (mencegah akumulasi delay jika PC lambat)"
     )
     args = parser.parse_args()
 
