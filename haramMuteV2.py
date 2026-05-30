@@ -109,17 +109,18 @@ def processAudio(chunkDuration):
 
 if __name__ == "__main__":
     if len(sys.argv) > 1:
-        parser = argparse.ArgumentParser()
-        parser.add_argument("-c", "--chunk", type=float, default=0.5)
+        parser = argparse.ArgumentParser(description="HaramMute V2 - Pemisah Vokal Real-Time (Model Light Cepat)")
+        parser.add_argument("-c", "--chunk", type=float, default=0.5, help="Durasi potongan audio dalam detik. Nilai kecil = minim delay, nilai besar = suara stabil (default: 0.5)")
         args = parser.parse_args()
         chunkDuration = args.chunk
     else:
         print("=== MENU KONFIGURASI ===")
+        print("[-] Chunk Duration : Durasi potongan audio (detik). Kecil = minim delay; Besar = lebih stabil.")
         try:
-            chunkInput = input("Masukkan Chunk Duration (detik, default 0.5): ").strip()
+            chunkInput = input("    Masukkan Chunk Duration (detik, default 0.5): ").strip()
             chunkDuration = float(chunkInput) if chunkInput else 0.5
         except ValueError:
-            print("[!] Input tidak valid, menggunakan default: 0.5")
+            print("    [!] Input tidak valid, menggunakan default: 0.5")
             chunkDuration = 0.5
             
     processAudio(chunkDuration=chunkDuration)
