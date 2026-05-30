@@ -117,36 +117,39 @@ def processAudio(chunkDuration, bufferSize, audioMode):
 
 if __name__ == "__main__":
     if len(sys.argv) > 1:
-        parser = argparse.ArgumentParser()
-        parser.add_argument("-c", "--chunk", type=float, default=1.0)
-        parser.add_argument("-b", "--buffer", type=int, default=3)
-        parser.add_argument("-m", "--mode", choices=['vocals', 'instrumental'], default='instrumental')
+        parser = argparse.ArgumentParser(description="HaramMute - Pemisah Vokal & Instrumen Real-Time menggunakan AI Demucs")
+        parser.add_argument("-c", "--chunk", type=float, default=1.0, help="Durasi potongan audio dalam detik. Nilai kecil = minim delay, nilai besar = suara stabil (default: 1.0)")
+        parser.add_argument("-b", "--buffer", type=int, default=3, help="Kapasitas maksimal antrean buffer audio untuk mencegah akumulasi delay (default: 3)")
+        parser.add_argument("-m", "--mode", choices=['vocals', 'instrumental'], default='instrumental', help="Mode output suara: 'vocals' (vokal saja) atau 'instrumental' (instrumen saja) (default: instrumental)")
         args = parser.parse_args()
         chunkDuration = args.chunk
         bufferSize = args.buffer
         audioMode = args.mode
     else:
         print("=== MENU KONFIGURASI ===")
+        print("[-] Chunk Duration : Durasi potongan audio (detik). Kecil = minim delay; Besar = lebih stabil.")
         try:
-            chunkInput = input("Masukkan Chunk Duration (detik, default 1.0): ").strip()
+            chunkInput = input("    Masukkan Chunk Duration (detik, default 1.0): ").strip()
             chunkDuration = float(chunkInput) if chunkInput else 1.0
         except ValueError:
-            print("[!] Input tidak valid, menggunakan default: 1.0")
+            print("    [!] Input tidak valid, menggunakan default: 1.0")
             chunkDuration = 1.0
             
+        print("[-] Buffer Size    : Batas antrean audio. Kecil (1-3) = real-time; Besar = mencegah putus-putus tetapi menumpuk delay.")
         try:
-            bufferInput = input("Masukkan Buffer Size (default 3): ").strip()
+            bufferInput = input("    Masukkan Buffer Size (default 3): ").strip()
             bufferSize = int(bufferInput) if bufferInput else 3
         except ValueError:
-            print("[!] Input tidak valid, menggunakan default: 3")
+            print("    [!] Input tidak valid, menggunakan default: 3")
             bufferSize = 3
             
-        modeInput = input("Masukkan Mode ('vocals' atau 'instrumental', default 'instrumental'): ").strip().lower()
+        print("[-] Mode           : Tipe audio yang ingin didengarkan ('vocals' atau 'instrumental').")
+        modeInput = input("    Masukkan Mode (vocals/instrumental, default instrumental): ").strip().lower()
         if modeInput in ['vocals', 'instrumental']:
             audioMode = modeInput
         else:
             if modeInput:
-                print("[!] Input tidak valid, menggunakan default: instrumental")
+                print("    [!] Input tidak valid, menggunakan default: instrumental")
             audioMode = 'instrumental'
             
     processAudio(chunkDuration=chunkDuration, bufferSize=bufferSize, audioMode=audioMode)
