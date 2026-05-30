@@ -6,164 +6,147 @@ import numpy as np
 import torch
 import threading
 import warnings
+import os
+import ctypes
 from demucs.pretrained import get_model
 from demucs.apply import apply_model
 
-# Mengabaikan warning yang tidak relevan agar console bersih
+# Mengabaikan warning agar console bersih
 warnings.filterwarnings("ignore")
 
-# Konfigurasi Parameter
-sampleRate = 44100   # Standar sampling rate audio
-numChannels = 2      # Stereo
+sampleRate = 44100
+numChannels = 2
 
 def getDeviceIndices():
-    """
-    Mencari indeks dari Virtual Audio Cable sebagai Input, 
-    dan default speaker sebagai Output.
-    """
     devices = sd.query_devices()
     inputIdx = None
     outputIdx = None
     
-    print("Mencari Virtual Audio Cable (VB-Cable)...")
+    print("\n--- DAFTAR PERANGKAT AUDIO ---")
+    for i, dev in enumerate(devices):
+        print(f"[{i}] {dev['name']} (In: {dev['max_input_channels']}, Out: {dev['max_output_channels']})")
+
     for i, dev in enumerate(devices):
         if dev['max_input_channels'] > 0 and 'CABLE Output' in dev['name']:
             inputIdx = i
             break
             
     if inputIdx is None:
-        print("Virtual Audio Cable ('CABLE Output') tidak ditemukan secara otomatis!")
-        print("Daftar perangkat:")
-        print(devices)
-        try:
-            inputIdx = int(input("\nMasukkan ID untuk input device (CABLE Output): "))
-        except ValueError:
-            print("ID harus berupa angka. Keluar.")
-            sys.exit(1)
+        try: inputIdx = int(input("\nMasukkan ID Input (CABLE Output): "))
+        except: sys.exit(1)
             
-    # Menggunakan default speaker untuk output
     outputIdx = sd.default.device[1]
-    
-    print(f"\n-> Menggunakan Input Device ID : {inputIdx} ({devices[inputIdx]['name']})")
-    print(f"-> Menggunakan Output Device ID: {outputIdx} ({devices[outputIdx]['name']})\n")
+    print(f"\n-> INPUT : [{inputIdx}] {devices[inputIdx]['name']}")
+    print(f"-> OUTPUT: [{outputIdx}] {devices[outputIdx]['name']}\n")
     return inputIdx, outputIdx
 
-def processAudio(chunkDuration):
-    """
-    Fungsi utama untuk membaca stream dari VB-Cable, memproses audio ke Demucs,
-    dan memutarnya kembali ke output audio (Speaker).
-    """
-    print("Memuat model AI Demucs (ini mungkin memakan waktu beberapa detik)...")
-    
-    # Load model (htdemucs adalah model standar yang bagus)
-    modelName = 'htdemucs'
-    model = get_model(modelName)
+def printVUMeter(data, prefix=""):
+    rms = np.sqrt(np.mean(data**2))
+    meter = int(rms * 50)
+    bar = "█" * meter + "-" * (50 - meter)
+    sys.stdout.write(f"\r{prefix} |{bar}| {rms:.4f} ")
+    sys.stdout.flush()
+
+def processAudio(chunkDuration, bufferSize, audioMode):
+    print("Memuat model AI Demucs (Optimized)...")
+    model = get_model('htdemucs')
     model.eval()
     
-    # Cek apakah bisa menggunakan GPU (CUDA)
     deviceType = "cuda" if torch.cuda.is_available() else "cpu"
-    print(f"Menggunakan perangkat komputasi: {deviceType.upper()}")
+    print(f"Komputasi: {deviceType.upper()}")
     
-    # Optimasi performa CPU untuk Intel i7
     if deviceType == "cpu":
-        torch.set_num_threads(8) # Fokus pada Performance Cores
+        try: ctypes.windll.kernel32.SetPriorityClass(ctypes.windll.kernel32.GetCurrentProcess(), 0x00000080)
+        except: pass
+        torch.set_num_threads(8)
+        torch.set_num_interop_threads(1)
+        torch.set_flush_denormal(True)
         
     model.to(deviceType)
+    if deviceType == "cuda": model.half()
     
-    # Mencari index output yang merupakan "vokal"
-    try:
-        vocalIdx = model.sources.index('vocals')
-    except ValueError:
-        vocalIdx = 3 # Biasanya posisi default untuk vokal di htdemucs
+    try: vocalIdx = model.sources.index('vocals')
+    except: vocalIdx = 3
+    otherIndices = [i for i, name in enumerate(model.sources) if name != 'vocals']
         
     inputIdx, outputIdx = getDeviceIndices()
     chunkSamples = int(chunkDuration * sampleRate)
-    
-    # Inisialisasi antrean dengan batas (maxsize) agar tidak terjadi akumulasi delay
-    audioQueue = queue.Queue(maxsize=args.buffer)
+    audioQueue = queue.Queue(maxsize=bufferSize)
     
     def audioCallback(indata, frames, time, status):
-        """
-        Callback ini akan dipanggil otomatis saat buffer input sudah penuh
-        """
-        if status:
-            print(status, file=sys.stderr)
-            
-        try:
-            audioQueue.put_nowait(indata.copy())
+        try: audioQueue.put_nowait(indata.copy())
         except queue.Full:
-            # Jika antrean penuh, buang chunk paling lama dan masukkan yang baru
-            # Ini memastikan suara tetap real-time (tidak menumpuk delay)
-            try:
-                audioQueue.get_nowait()
-                audioQueue.put_nowait(indata.copy())
-            except:
-                pass
+            try: audioQueue.get_nowait(); audioQueue.put_nowait(indata.copy())
+            except: pass
         
-    print(f"\n[+] Memulai streaming audio (Chunk: {chunkDuration} detik, Queue: {args.buffer})...")
-    print("[!] MAINKAN MUSIK ANDA SEKARANG.")
-    print("Tekan Ctrl+C untuk berhenti.")
+    print(f"\n[+] LIVE STREAMING ({audioMode.upper()}) - Chunk: {chunkDuration}s")
     
     outQueue = queue.Queue()
-    
     def outputWorker(stream):
         while True:
             data = outQueue.get()
-            if data is None: # Sinyal berhenti
-                break
+            if data is None: break
             stream.write(data)
     
     try:
-        # Buka InputStream (membaca dari Chrome -> VB-Cable)
         with sd.InputStream(device=inputIdx, channels=numChannels, samplerate=sampleRate, blocksize=chunkSamples, callback=audioCallback):
-            
-            # Buka OutputStream (menulis vokal saja -> Speaker)
             with sd.OutputStream(device=outputIdx, channels=numChannels, samplerate=sampleRate) as outStream:
-                
-                # Jalankan thread terpisah khusus untuk output playback
                 playThread = threading.Thread(target=outputWorker, args=(outStream,), daemon=True)
                 playThread.start()
                 
                 while True:
-                    # Ambil antrean rekaman audio terbaru
                     chunkData = audioQueue.get()
-                    
-                    # Konversi array Numpy ke Tensor PyTorch
-                    # Bentuk tensor yang dibutuhkan Demucs: (batch, channels, frames)
                     wavTensor = torch.tensor(chunkData.T, dtype=torch.float32).unsqueeze(0).to(deviceType)
                     
-                    # Proses pemisahan
+                    if deviceType == "cuda":
+                        wavTensor = wavTensor.half()
+
                     with torch.no_grad():
-                        sources = apply_model(model, wavTensor, shifts=0, split=False, progress=False)
+                        # Set overlap=0 agar tidak ada redundansi kalkulasi
+                        sources = apply_model(model, wavTensor, shifts=0, split=False, progress=False, overlap=0)
                         
-                    # Ambil hanya bagian vokal
-                    vocalsTensor = sources[0, vocalIdx]
+                    if audioMode == 'vocals': outTensor = sources[0, vocalIdx]
+                    else: outTensor = sources[0, otherIndices].sum(dim=0)
                     
-                    # Konversi kembali ke format Numpy: (frames, channels) dan pastikan formatnya C-contiguous
-                    outChunk = np.ascontiguousarray(vocalsTensor.cpu().numpy().T)
-                    
-                    # Lempar ke antrean pemutaran (tidak lagi blocking/menunggu)
+                    outChunk = np.ascontiguousarray(outTensor.cpu().float().numpy().T)
+                    printVUMeter(outChunk, prefix="AUDIO")
                     outQueue.put(outChunk)
                     
-    except KeyboardInterrupt:
-        print("\n[+] Program dihentikan oleh pengguna.")
-    except Exception as err:
-        print(f"\n[-] Terjadi kesalahan: {err}")
+    except KeyboardInterrupt: print("\n\n[+] Berhenti.")
+    except Exception as err: print(f"\n\n[-] Error: {err}")
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="HaramMute - Pemisah Vokal Real-Time")
-    parser.add_argument(
-        "-c", "--chunk",
-        type=float,
-        default=2.0,
-        help="Waktu buffer dalam detik (semakin kecil = minim delay, tapi butuh CPU kencang)"
-    )
-    parser.add_argument(
-        "-b", "--buffer",
-        type=int,
-        default=2,
-        help="Jumlah maksimal antrean chunk (mencegah akumulasi delay jika PC lambat)"
-    )
-    args = parser.parse_args()
-
-    processAudio(chunkDuration=args.chunk)
+    if len(sys.argv) > 1:
+        parser = argparse.ArgumentParser()
+        parser.add_argument("-c", "--chunk", type=float, default=1.0)
+        parser.add_argument("-b", "--buffer", type=int, default=3)
+        parser.add_argument("-m", "--mode", choices=['vocals', 'instrumental'], default='instrumental')
+        args = parser.parse_args()
+        chunkDuration = args.chunk
+        bufferSize = args.buffer
+        audioMode = args.mode
+    else:
+        print("=== MENU KONFIGURASI ===")
+        try:
+            chunkInput = input("Masukkan Chunk Duration (detik, default 1.0): ").strip()
+            chunkDuration = float(chunkInput) if chunkInput else 1.0
+        except ValueError:
+            print("[!] Input tidak valid, menggunakan default: 1.0")
+            chunkDuration = 1.0
+            
+        try:
+            bufferInput = input("Masukkan Buffer Size (default 3): ").strip()
+            bufferSize = int(bufferInput) if bufferInput else 3
+        except ValueError:
+            print("[!] Input tidak valid, menggunakan default: 3")
+            bufferSize = 3
+            
+        modeInput = input("Masukkan Mode ('vocals' atau 'instrumental', default 'instrumental'): ").strip().lower()
+        if modeInput in ['vocals', 'instrumental']:
+            audioMode = modeInput
+        else:
+            if modeInput:
+                print("[!] Input tidak valid, menggunakan default: instrumental")
+            audioMode = 'instrumental'
+            
+    processAudio(chunkDuration=chunkDuration, bufferSize=bufferSize, audioMode=audioMode)
