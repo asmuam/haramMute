@@ -5,9 +5,18 @@ Harap perbarui file ini jika Anda melakukan perubahan (*Pull Request*).
 
 ## [Unreleased]
 ### Added
+- `haramMute.py` & `haramMuteV2.py`: Menu konfigurasi parameter interaktif di terminal jika program dijalankan tanpa parameter tambahan.
+- `haramMute.bat` & `haramMuteV2.bat`: Prompt interaktif untuk memilih antara parameter default atau input parameter manual di terminal.
+- `haramMute.py`: Fitur `--mode` untuk memilih antara `instrumental` (tanpa vokal) atau `vocals` (vokal saja).
+- `haramMute.py`: Indikator VU Meter di konsol untuk memantau output suara secara visual (debugging).
+- `haramMute.py`: Optimasi 8-thread P-Core & `flush_denormal` untuk kestabilan i7-12700.
+- `haramMute.py`: Optimasi khusus Intel i7-12700 (High Process Priority).
+- `haramMute.py`: Optimasi FP16 (Half Precision) untuk pengguna GPU NVIDIA agar inferensi lebih cepat.
+- `haramMute.bat`: Penyesuaian default chunk ke 1.0 detik untuk kestabilan suara (mencegah stutter).
 - `haramMute.py`: Opsi CLI `-c` atau `--chunk` untuk mengatur ukuran buffer audio (Default dikurangi dari 5.0s ke 2.0s).
 - `haramMute.py`: Opsi CLI `-b` atau `--buffer` untuk membatasi antrean audio dan mencegah akumulasi delay.
 - `run.bat`: Batch script untuk menjalankan program dengan sekali klik (double-click).
+- `haramMute.bat`: Penyesuaian default chunk ke 0.5 detik untuk minim delay (sebelumnya 5.0 detik).
 
 ### Changed
 - `README.md`: Memperbarui dokumentasi pada bagian *Modifikasi Lanjutan* untuk penggunaan opsi CLI `--chunk` alih-alih mengubah variabel di dalam skrip, serta memperjelas perilaku ganti output device.
