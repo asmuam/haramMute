@@ -21,6 +21,7 @@ Harap perbarui file ini jika Anda melakukan perubahan (*Pull Request*).
 
 ### Changed
 - `README.md`: Memperbarui dokumentasi pada bagian *Modifikasi Lanjutan* untuk penggunaan opsi CLI `--chunk` alih-alih mengubah variabel di dalam skrip, serta memperjelas perilaku ganti output device.
+- `haramMute.py`: Mendukung inisial `v` (vocals) atau `i` (instrumental) untuk pemilihan mode di menu konfigurasi interaktif.
 
 ### Fixed
 - `haramMute.bat`: Mengubah flag `-b` menjadi `-c` agar pengaturan durasi buffer (chunk) sesuai dengan yang diharapkan pengguna (memperbaiki masalah di mana nilai tetap 2.0).
