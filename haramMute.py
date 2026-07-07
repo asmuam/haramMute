@@ -143,10 +143,12 @@ if __name__ == "__main__":
             print("    [!] Input tidak valid, menggunakan default: 3")
             bufferSize = 3
             
-        print("[-] Mode           : Tipe audio yang ingin didengarkan ('vocals' atau 'instrumental').")
-        modeInput = input("    Masukkan Mode (vocals/instrumental, default instrumental): ").strip().lower()
-        if modeInput in ['vocals', 'instrumental']:
-            audioMode = modeInput
+        print("[-] Mode           : Tipe audio yang ingin didengarkan ('vocals' [v] atau 'instrumental' [i]).")
+        modeInput = input("    Masukkan Mode (v/i/vocals/instrumental, default instrumental): ").strip().lower()
+        if modeInput.startswith('v'):
+            audioMode = 'vocals'
+        elif modeInput.startswith('i'):
+            audioMode = 'instrumental'
         else:
             if modeInput:
                 print("    [!] Input tidak valid, menggunakan default: instrumental")
