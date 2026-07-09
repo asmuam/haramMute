@@ -85,7 +85,7 @@ def getSystemSoundDevices():
         return set()
 
 def deviceMonitorLoop():
-    global activeOutputName, recreateOutputStreamEvent
+    global recreateOutputStreamEvent
     
     knownWmiDevices = getSystemSoundDevices()
     
@@ -96,22 +96,7 @@ def deviceMonitorLoop():
         if not currentWmiDevices:
             continue
             
-        # 1. Cek jika perangkat output aktif terputus dari sistem (WMI)
-        activePresent = False
-        if activeOutputName == "":
-            activePresent = True
-        else:
-            for d in currentWmiDevices:
-                if d.lower() in activeOutputName.lower() or activeOutputName.lower() in d.lower():
-                    activePresent = True
-                    break
-                    
-        if not activePresent:
-            recreateOutputStreamEvent.set()
-            knownWmiDevices = currentWmiDevices
-            continue
-            
-        # 2. Cek jika ada perangkat baru yang terhubung
+        # Cek jika ada perangkat baru yang terhubung
         newWmi = currentWmiDevices - knownWmiDevices
         if newWmi:
             recreateOutputStreamEvent.set()
