@@ -9,6 +9,7 @@ import warnings
 import os
 import ctypes
 import time
+import subprocess
 from demucs.pretrained import get_model
 from demucs.apply import apply_model
 
@@ -20,10 +21,11 @@ numChannels = 2
 
 # Global variables untuk pemindahan perangkat output dinamis
 vuMeterEnabled = True
+activeInputName = ""
+activeInputHostApi = -1
 activeOutputName = ""
 activeOutputHostApi = -1
 recreateOutputStreamEvent = threading.Event()
-promptActive = False
 
 def loadEnvDefaults():
     defaults = {
@@ -67,95 +69,54 @@ def findDeviceIdx(name, hostapi):
         pass
     return None
 
-def promptNewDevice(deviceName, deviceHostApi):
-    global vuMeterEnabled, activeOutputName, activeOutputHostApi, recreateOutputStreamEvent
-    
-    vuMeterEnabled = False
-    time.sleep(0.2)  # Menunggu print VU meter yang sedang berjalan selesai
-    
-    print(f"\n\n[!] Perangkat output baru terdeteksi: {deviceName}")
-    sys.stdout.write("[?] Gunakan perangkat baru ini? (y/n, default n): ")
-    sys.stdout.flush()
-    
+def getSystemSoundDevices():
     try:
-        userChoice = sys.stdin.readline().strip().lower()
-    except Exception:
-        userChoice = 'n'
-        
-    if userChoice.startswith('y'):
-        activeOutputName = deviceName
-        activeOutputHostApi = deviceHostApi
-        recreateOutputStreamEvent.set()
-        print(f"[+] Beralih ke output baru: {deviceName}\n")
-    else:
-        print("[+] Tetap menggunakan output saat ini.\n")
-        
-    vuMeterEnabled = True
-
-def checkAndPromptDevice(deviceName, deviceHostApi):
-    global promptActive
-    if promptActive:
-        return
-    promptActive = True
-    try:
-        promptNewDevice(deviceName, deviceHostApi)
-    finally:
-        promptActive = False
+        startupinfo = subprocess.STARTUPINFO()
+        startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+        out = subprocess.check_output('wmic path Win32_SoundDevice get Name', startupinfo=startupinfo, timeout=2.0)
+        lines = out.decode('utf-8', errors='ignore').splitlines()
+        devices = []
+        for line in lines[1:]:
+            line = line.strip()
+            if line and line.lower() != 'name':
+                devices.append(line)
+        return set(devices)
+    except:
+        return set()
 
 def deviceMonitorLoop():
-    global activeOutputName, activeOutputHostApi, recreateOutputStreamEvent
+    global activeOutputName, recreateOutputStreamEvent
     
-    try:
-        initialDevices = sd.query_devices()
-        knownDevices = {(d['name'], d['hostapi']) for d in initialDevices if d['max_output_channels'] > 0}
-    except Exception:
-        knownDevices = set()
-        
+    knownWmiDevices = getSystemSoundDevices()
+    
     while True:
         time.sleep(2.0)
         
-        try:
-            currentDevices = sd.query_devices()
-        except Exception:
+        currentWmiDevices = getSystemSoundDevices()
+        if not currentWmiDevices:
             continue
             
-        currentOutputDevices = [d for d in currentDevices if d['max_output_channels'] > 0]
-        currentOutputSet = {(d['name'], d['hostapi']) for d in currentOutputDevices}
-        
-        # 1. Cek jika perangkat output aktif terputus
-        activeIdx = findDeviceIdx(activeOutputName, activeOutputHostApi)
-        if activeIdx is None:
-            try:
-                defaultOutputIdx = sd.default.device[1]
-                defaultDev = sd.query_devices(defaultOutputIdx)
-                if defaultDev['max_output_channels'] > 0:
-                    activeOutputName = defaultDev['name']
-                    activeOutputHostApi = defaultDev['hostapi']
-                else:
-                    if currentOutputDevices:
-                        activeOutputName = currentOutputDevices[0]['name']
-                        activeOutputHostApi = currentOutputDevices[0]['hostapi']
-            except Exception:
-                if currentOutputDevices:
-                    activeOutputName = currentOutputDevices[0]['name']
-                    activeOutputHostApi = currentOutputDevices[0]['hostapi']
-            
-            print(f"\n[!] Perangkat output aktif terputus! Beralih otomatis ke: {activeOutputName}")
-            recreateOutputStreamEvent.set()
-            
-        # 2. Cek jika ada perangkat output baru yang terhubung
-        newDevices = currentOutputSet - knownDevices
-        if newDevices and not promptActive:
-            for d in currentOutputDevices:
-                if (d['name'], d['hostapi']) in newDevices:
-                    threading.Thread(
-                        target=checkAndPromptDevice,
-                        args=(d['name'], d['hostapi']),
-                        daemon=True
-                    ).start()
+        # 1. Cek jika perangkat output aktif terputus dari sistem (WMI)
+        activePresent = False
+        if activeOutputName == "":
+            activePresent = True
+        else:
+            for d in currentWmiDevices:
+                if d.lower() in activeOutputName.lower() or activeOutputName.lower() in d.lower():
+                    activePresent = True
                     break
                     
-        knownDevices = currentOutputSet
+        if not activePresent:
+            recreateOutputStreamEvent.set()
+            knownWmiDevices = currentWmiDevices
+            continue
+            
+        # 2. Cek jika ada perangkat baru yang terhubung
+        newWmi = currentWmiDevices - knownWmiDevices
+        if newWmi:
+            recreateOutputStreamEvent.set()
+            
+        knownWmiDevices = currentWmiDevices
 
 def getDeviceIndices():
     devices = sd.query_devices()
@@ -211,10 +172,12 @@ def processAudio(chunkDuration, bufferSize, audioMode):
     except: vocalIdx = 3
     otherIndices = [i for i, name in enumerate(model.sources) if name != 'vocals']
         
-    global activeOutputName, activeOutputHostApi
+    global activeOutputName, activeOutputHostApi, activeInputName, activeInputHostApi
     inputIdx, outputIdx = getDeviceIndices()
     
     devices = sd.query_devices()
+    activeInputName = devices[inputIdx]['name']
+    activeInputHostApi = devices[inputIdx]['hostapi']
     activeOutputName = devices[outputIdx]['name']
     activeOutputHostApi = devices[outputIdx]['hostapi']
     
@@ -250,26 +213,94 @@ def processAudio(chunkDuration, bufferSize, audioMode):
                 continue
     
     try:
-        with sd.InputStream(device=inputIdx, channels=numChannels, samplerate=sampleRate, blocksize=chunkSamples, callback=audioCallback):
-            while True:
-                # Dapatkan indeks perangkat aktif saat ini (karena indeks bisa bergeser ketika ada cabut/colok)
-                currentOutputIdx = findDeviceIdx(activeOutputName, activeOutputHostApi)
-                if currentOutputIdx is None:
-                    # Fallback jika tidak ditemukan
-                    try:
-                        defaultIdx = sd.default.device[1]
-                        currentOutputIdx = defaultIdx
-                        activeOutputName = sd.query_devices(defaultIdx)['name']
-                        activeOutputHostApi = sd.query_devices(defaultIdx)['hostapi']
-                    except Exception:
-                        pass
-                
-                if currentOutputIdx is None:
-                    print("\n[-] Tidak ada perangkat output yang tersedia. Menunggu...")
-                    time.sleep(2.0)
-                    continue
-                
+        knownPortAudioDevices = set()
+        
+        while True:
+            # Re-initialize sounddevice untuk me-refresh cache perangkat keras audio
+            try:
+                sd._terminate()
+                sd._initialize()
+            except Exception:
+                pass
+            
+            # Cari indeks perangkat aktif saat ini
+            currentInputIdx = findDeviceIdx(activeInputName, activeInputHostApi)
+            currentOutputIdx = findDeviceIdx(activeOutputName, activeOutputHostApi)
+            
+            # Jika perangkat input tidak ditemukan, cari ulang CABLE Output
+            if currentInputIdx is None:
                 try:
+                    devicesList = sd.query_devices()
+                    for i, dev in enumerate(devicesList):
+                        if dev['max_input_channels'] > 0 and 'CABLE Output' in dev['name']:
+                            currentInputIdx = i
+                            activeInputName = dev['name']
+                            activeInputHostApi = dev['hostapi']
+                            break
+                except Exception:
+                    pass
+            
+            # Jika perangkat output tidak ditemukan (terputus), fallback ke default
+            if currentOutputIdx is None:
+                try:
+                    defaultIdx = sd.default.device[1]
+                    defaultDev = sd.query_devices(defaultIdx)
+                    if defaultDev['max_output_channels'] > 0:
+                        currentOutputIdx = defaultIdx
+                        activeOutputName = defaultDev['name']
+                        activeOutputHostApi = defaultDev['hostapi']
+                        print(f"\n[!] Perangkat output aktif terputus! Beralih otomatis ke: {activeOutputName}")
+                except Exception:
+                    pass
+                    
+            if currentInputIdx is None or currentOutputIdx is None:
+                print("\n[-] Perangkat input atau output tidak tersedia. Menunggu...")
+                time.sleep(2.0)
+                continue
+                
+            # Deteksi perangkat output baru
+            try:
+                devicesList = sd.query_devices()
+                currentOutputDevices = [d for d in devicesList if d['max_output_channels'] > 0]
+                currentOutputSet = {(d['name'], d['hostapi']) for d in currentOutputDevices}
+            except Exception:
+                currentOutputSet = set()
+                currentOutputDevices = []
+                
+            if knownPortAudioDevices:
+                newDevices = currentOutputSet - knownPortAudioDevices
+                if newDevices:
+                    for d in currentOutputDevices:
+                        if (d['name'], d['hostapi']) in newDevices:
+                            vuMeterEnabled = False
+                            time.sleep(0.2)
+                            print(f"\n\n[!] Perangkat output baru terdeteksi: {d['name']}")
+                            sys.stdout.write("[?] Gunakan perangkat baru ini? (y/n, default n): ")
+                            sys.stdout.flush()
+                            try:
+                                userChoice = sys.stdin.readline().strip().lower()
+                            except Exception:
+                                userChoice = 'n'
+                                
+                            if userChoice.startswith('y'):
+                                currentOutputIdx = findDeviceIdx(d['name'], d['hostapi'])
+                                if currentOutputIdx is not None:
+                                    activeOutputName = d['name']
+                                    activeOutputHostApi = d['hostapi']
+                                    print(f"[+] Beralih ke output baru: {d['name']}\n")
+                            else:
+                                print("[+] Tetap menggunakan output saat ini.\n")
+                            vuMeterEnabled = True
+                            break
+                            
+            knownPortAudioDevices = currentOutputSet
+            
+            print(f"\n[+] Membuka streaming:")
+            print(f"    INPUT : [{currentInputIdx}] {activeInputName}")
+            print(f"    OUTPUT: [{currentOutputIdx}] {activeOutputName}")
+            
+            try:
+                with sd.InputStream(device=currentInputIdx, channels=numChannels, samplerate=sampleRate, blocksize=chunkSamples, callback=audioCallback):
                     with sd.OutputStream(device=currentOutputIdx, channels=numChannels, samplerate=sampleRate) as outStream:
                         recreateOutputStreamEvent.clear()
                         outWorkerStopEvent = threading.Event()
@@ -308,9 +339,9 @@ def processAudio(chunkDuration, bufferSize, audioMode):
                         outQueue.put(None)
                         playThread.join(timeout=1.0)
                         
-                except Exception as streamError:
-                    print(f"\n[-] Gagal membuka/menjalankan output stream: {streamError}")
-                    time.sleep(1.0)
+            except Exception as streamError:
+                print(f"\n[-] Gagal membuka/menjalankan stream audio: {streamError}")
+                time.sleep(2.0)
                     
     except KeyboardInterrupt: print("\n\n[+] Berhenti.")
     except Exception as err: print(f"\n\n[-] Error: {err}")
