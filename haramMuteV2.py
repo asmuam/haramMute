@@ -204,6 +204,23 @@ def processAudio(chunkDuration):
             except Exception:
                 pass
             
+            # Cek jika default device Windows berubah
+            try:
+                defaultIdx = sd.default.device[1]
+                defaultDev = sd.query_devices(defaultIdx)
+                defaultName = defaultDev['name']
+                defaultHostApi = defaultDev['hostapi']
+            except Exception:
+                defaultName = ""
+                defaultHostApi = -1
+                
+            if defaultName != "" and (defaultName != activeOutputName or defaultHostApi != activeOutputHostApi):
+                newIdx = findDeviceIdx(defaultName, defaultHostApi)
+                if newIdx is not None:
+                    print(f"\n[!] Perangkat default sistem berubah! Beralih otomatis ke: {defaultName}")
+                    activeOutputName = defaultName
+                    activeOutputHostApi = defaultHostApi
+            
             # Cari indeks perangkat aktif saat ini
             currentInputIdx = findDeviceIdx(activeInputName, activeInputHostApi)
             currentOutputIdx = findDeviceIdx(activeOutputName, activeOutputHostApi)
@@ -252,7 +269,8 @@ def processAudio(chunkDuration):
                 newDevices = currentOutputSet - knownPortAudioDevices
                 if newDevices:
                     for d in currentOutputDevices:
-                        if (d['name'], d['hostapi']) in newDevices:
+                        # Hanya prompt jika perangkat baru ini bukan default device yang baru saja di-switch secara otomatis
+                        if (d['name'], d['hostapi']) in newDevices and (d['name'] != activeOutputName or d['hostapi'] != activeOutputHostApi):
                             vuMeterEnabled = False
                             time.sleep(0.2)
                             print(f"\n\n[!] Perangkat output baru terdeteksi: {d['name']}")
