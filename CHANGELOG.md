@@ -27,7 +27,7 @@ Harap perbarui file ini jika Anda melakukan perubahan (*Pull Request*).
 - `haramMute.py`: Mendukung inisial `v` (vocals) atau `i` (instrumental) untuk pemilihan mode di menu konfigurasi interaktif.
 
 ### Fixed
-- `haramMute.py` & `haramMuteV2.py`: Memperbaiki bug di mana audio terputus total/hilang saat perangkat output aktif dicabut. Sekarang sistem mendeteksi pencabutan secara OS-level via WMI, me-refresh PortAudio, dan secara otomatis memindahkan aliran suara ke default active speaker yang tersedia di Windows.
+- `haramMute.py` & `haramMuteV2.py`: Memperbaiki bug di mana audio terputus total/hilang saat perangkat output aktif dicabut, serta memperbaiki masalah tight restart loop (looping terus-menerus) dengan membatasi pemantauan latar belakang WMI hanya untuk mendeteksi perangkat baru yang dicolokkan, sementara pelepasan perangkat langsung ditangani secara instan oleh exception stream write.
 - `haramMute.bat`: Mengubah flag `-b` menjadi `-c` agar pengaturan durasi buffer (chunk) sesuai dengan yang diharapkan pengguna (memperbaiki masalah di mana nilai tetap 2.0).
 - `haramMute.py`: Memperjelas output log dengan menampilkan informasi *chunk duration* dan *queue size* secara bersamaan agar lebih transparan bagi pengguna.
 
