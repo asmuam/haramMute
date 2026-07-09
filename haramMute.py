@@ -25,6 +25,38 @@ activeOutputHostApi = -1
 recreateOutputStreamEvent = threading.Event()
 promptActive = False
 
+def loadEnvDefaults():
+    defaults = {
+        'CHUNK_DURATION': 2.7,
+        'BUFFER_SIZE': 3,
+        'AUDIO_MODE': 'vocals',
+        'V2_CHUNK_DURATION': 0.3
+    }
+    envPath = os.path.join(os.path.dirname(os.path.abspath(__file__)), '.env')
+    if os.path.exists(envPath):
+        try:
+            with open(envPath, 'r') as f:
+                for line in f:
+                    line = line.strip()
+                    if not line or line.startswith('#'):
+                        continue
+                    if '=' in line:
+                        key, val = line.split('=', 1)
+                        key = key.strip()
+                        val = val.strip()
+                        if val.startswith(('"', "'")) and val.endswith(('"', "'")):
+                            val = val[1:-1]
+                        if key in defaults:
+                            if key in ('CHUNK_DURATION', 'V2_CHUNK_DURATION'):
+                                defaults[key] = float(val)
+                            elif key == 'BUFFER_SIZE':
+                                defaults[key] = int(val)
+                            else:
+                                defaults[key] = val
+        except Exception as e:
+            print(f"[!] Gagal membaca .env: {e}")
+    return defaults
+
 def findDeviceIdx(name, hostapi):
     try:
         devices = sd.query_devices()
@@ -284,11 +316,14 @@ def processAudio(chunkDuration, bufferSize, audioMode):
     except Exception as err: print(f"\n\n[-] Error: {err}")
 
 if __name__ == "__main__":
+    envDefaults = loadEnvDefaults()
+    
     if len(sys.argv) > 1:
         parser = argparse.ArgumentParser(description="HaramMute - Pemisah Vokal & Instrumen Real-Time menggunakan AI Demucs")
-        parser.add_argument("-c", "--chunk", type=float, default=1.0, help="Durasi potongan audio dalam detik. Nilai kecil = minim delay, nilai besar = suara stabil (default: 1.0)")
-        parser.add_argument("-b", "--buffer", type=int, default=3, help="Kapasitas maksimal antrean buffer audio untuk mencegah akumulasi delay (default: 3)")
-        parser.add_argument("-m", "--mode", choices=['vocals', 'instrumental'], default='instrumental', help="Mode output suara: 'vocals' (vokal saja) atau 'instrumental' (instrumen saja) (default: instrumental)")
+        parser.add_argument("-c", "--chunk", type=float, default=envDefaults['CHUNK_DURATION'], help=f"Durasi potongan audio dalam detik (default: {envDefaults['CHUNK_DURATION']})")
+        parser.add_argument("-b", "--buffer", type=int, default=envDefaults['BUFFER_SIZE'], help=f"Kapasitas maksimal antrean buffer (default: {envDefaults['BUFFER_SIZE']})")
+        parser.add_argument("-m", "--mode", choices=['vocals', 'instrumental'], default=envDefaults['AUDIO_MODE'], help=f"Mode output suara (default: {envDefaults['AUDIO_MODE']})")
+        parser.add_argument("--env", action="store_true", help="Gunakan parameter default dari file .env tanpa menu interaktif")
         args = parser.parse_args()
         chunkDuration = args.chunk
         bufferSize = args.buffer
@@ -297,29 +332,29 @@ if __name__ == "__main__":
         print("=== MENU KONFIGURASI ===")
         print("[-] Chunk Duration : Durasi potongan audio (detik). Kecil = minim delay; Besar = lebih stabil.")
         try:
-            chunkInput = input("    Masukkan Chunk Duration (detik, default 1.0): ").strip()
-            chunkDuration = float(chunkInput) if chunkInput else 1.0
+            chunkInput = input(f"    Masukkan Chunk Duration (detik, default {envDefaults['CHUNK_DURATION']}): ").strip()
+            chunkDuration = float(chunkInput) if chunkInput else envDefaults['CHUNK_DURATION']
         except ValueError:
-            print("    [!] Input tidak valid, menggunakan default: 1.0")
-            chunkDuration = 1.0
+            print(f"    [!] Input tidak valid, menggunakan default: {envDefaults['CHUNK_DURATION']}")
+            chunkDuration = envDefaults['CHUNK_DURATION']
             
         print("[-] Buffer Size    : Batas antrean audio. Kecil (1-3) = real-time; Besar = mencegah putus-putus tetapi menumpuk delay.")
         try:
-            bufferInput = input("    Masukkan Buffer Size (default 3): ").strip()
-            bufferSize = int(bufferInput) if bufferInput else 3
+            bufferInput = input(f"    Masukkan Buffer Size (default {envDefaults['BUFFER_SIZE']}): ").strip()
+            bufferSize = int(bufferInput) if bufferInput else envDefaults['BUFFER_SIZE']
         except ValueError:
-            print("    [!] Input tidak valid, menggunakan default: 3")
-            bufferSize = 3
+            print(f"    [!] Input tidak valid, menggunakan default: {envDefaults['BUFFER_SIZE']}")
+            bufferSize = envDefaults['BUFFER_SIZE']
             
-        print("[-] Mode           : Tipe audio yang ingin didengarkan ('vocals' [v] atau 'instrumental' [i]).")
-        modeInput = input("    Masukkan Mode (v/i/vocals/instrumental, default instrumental): ").strip().lower()
+        print(f"[-] Mode           : Tipe audio ('vocals' [v] atau 'instrumental' [i], default {envDefaults['AUDIO_MODE']}).")
+        modeInput = input(f"    Masukkan Mode (v/i/vocals/instrumental, default {envDefaults['AUDIO_MODE']}): ").strip().lower()
         if modeInput.startswith('v'):
             audioMode = 'vocals'
         elif modeInput.startswith('i'):
             audioMode = 'instrumental'
         else:
             if modeInput:
-                print("    [!] Input tidak valid, menggunakan default: instrumental")
-            audioMode = 'instrumental'
+                print(f"    [!] Input tidak valid, menggunakan default: {envDefaults['AUDIO_MODE']}")
+            audioMode = envDefaults['AUDIO_MODE']
             
     processAudio(chunkDuration=chunkDuration, bufferSize=bufferSize, audioMode=audioMode)
