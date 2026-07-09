@@ -5,6 +5,8 @@ Harap perbarui file ini jika Anda melakukan perubahan (*Pull Request*).
 
 ## [Unreleased]
 ### Added
+- `haramMute.py` & `haramMuteV2.py`: Fitur pemuatan parameter default dari file konfigurasi `.env` secara dinamis (tanpa perlu melakukan hardcode nilai parameter default di dalam kode python atau batch files).
+- `.env` & `.env.example`: Menambahkan file konfigurasi default dan template `.env.example` untuk memudahkan konfigurasi parameter pengguna.
 - `haramMute.py` & `haramMuteV2.py`: Fitur pemindahan output audio secara dinamis (switching) jika perangkat output terputus secara tiba-tiba (fallback otomatis) atau saat mendeteksi adanya perangkat output baru (prompts interaktif).
 - `haramMute.py` & `haramMuteV2.py`: Menu konfigurasi parameter interaktif di terminal jika program dijalankan tanpa parameter tambahan (dilengkapi dengan deskripsi penjelasan fungsi tiap parameter).
 - `haramMute.py` & `haramMuteV2.py`: Deskripsi penjelasan opsi bantuan (`--help`) pada argumen CLI `argparse`.
