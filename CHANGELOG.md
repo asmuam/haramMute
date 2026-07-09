@@ -5,7 +5,7 @@ Harap perbarui file ini jika Anda melakukan perubahan (*Pull Request*).
 
 ## [Unreleased]
 ### Added
-- `haramMute.py`: Fitur pemindahan output audio secara dinamis (switching) jika perangkat output terputus secara tiba-tiba (fallback otomatis) atau saat mendeteksi adanya perangkat output baru (prompts interaktif).
+- `haramMute.py` & `haramMuteV2.py`: Fitur pemindahan output audio secara dinamis (switching) jika perangkat output terputus secara tiba-tiba (fallback otomatis) atau saat mendeteksi adanya perangkat output baru (prompts interaktif).
 - `haramMute.py` & `haramMuteV2.py`: Menu konfigurasi parameter interaktif di terminal jika program dijalankan tanpa parameter tambahan (dilengkapi dengan deskripsi penjelasan fungsi tiap parameter).
 - `haramMute.py` & `haramMuteV2.py`: Deskripsi penjelasan opsi bantuan (`--help`) pada argumen CLI `argparse`.
 - `haramMute.bat` & `haramMuteV2.bat`: Prompt interaktif untuk memilih antara parameter default atau input parameter manual di terminal.
